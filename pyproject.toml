@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "triton-stubs"
+version = "0.1.0"
+description = "Type stubs for NVIDIA Triton"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.black]
+required-version = "26"
+
+[tool.isort]
+profile = "black"
+skip_gitignore=true
+
+[tool.basedpyright]
+pythonVersion = "3.12"
+pythonPlatform = "Linux"
+typeCheckingMode = "strict"
+deprecateTypingAliases = true
+reportMissingTypeStubs = false
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.29.5",
+    "black~=26.0",
+    "isort>=6.0.1",
+]
