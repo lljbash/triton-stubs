@@ -1,6 +1,10 @@
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from functools import total_ordering
-from typing import Any, Literal, Self, overload
+from typing import Literal, Self, overload
+
+from _typeshed import Incomplete
+
+from triton.language.core import dtype, pointer_type
 
 __all__ = [
     "PropagateNan",
@@ -144,11 +148,11 @@ __all__ = [
     "zeros_like",
 ]
 
-type constexpr = Any
-type constexpr_type = Any
+PropagateNan: Incomplete
+TRITON_MAX_TENSOR_NUMEL: int
 
-class dtype: ...
-class pointer_type(dtype): ...
+type constexpr = Incomplete
+type constexpr_type = Incomplete
 
 void: dtype
 int1: dtype
@@ -218,6 +222,7 @@ class tensor:
     abs = _unary_op
     argmax = _argminmax
     argmin = _argminmax
+    broadcast_to = _broadcast_to
     cast = _cast
     cdiv = _binary_op
     ceil = _unary_op
@@ -226,6 +231,7 @@ class tensor:
     erf = _unary_op
     exp = _unary_op
     exp2 = _unary_op
+    expand_dims = _expand_dims
     floor = _unary_op
     log = _unary_op
     log2 = _unary_op
@@ -233,16 +239,22 @@ class tensor:
     logical_or = _binary_op
     max = _minmax
     min = _minmax
+    permute = _permute
+    ravel = _ravel
     reduce = _reduce
+    reshape = _reshape
     rsqrt = _unary_op
     sigmoid = _unary_op
     sin = _unary_op
     softmax = _softmax
+    split = _split
     sqrt = _unary_op
     sqrt_rn = _unary_op
     store = _store
     sum = _sum
+    trans = _trans
     to = _cast
+    view = _view
     xor_sum = _xor_sum
 
 def program_id(axis: int) -> tensor: ...
@@ -263,9 +275,49 @@ def _cast(
 
 cast = _cast
 
+# ===  Shape Manipulation Ops ===
+
+def broadcast(input: _TensorLike, other: _TensorLike) -> tuple[tensor, tensor]: ...
+@overload
+def _broadcast_to(input: _TensorLike, *shape: int) -> tensor: ...
+@overload
+def _broadcast_to(input: _TensorLike, shape: tuple[int, ...]) -> tensor: ...
+def _expand_dims(input: tensor, axis: int | Sequence[int]) -> tensor: ...
+def interleave(a: tensor, b: tensor) -> tensor: ...
+@overload
+def _permute(input: tensor, first_dim: int, *rest_dims: int) -> tensor: ...
+@overload
+def _permute(input: tensor, dims: tuple[int, *tuple[int, ...]]) -> tensor: ...
+def _ravel(x: tensor, can_reorder: bool = False) -> tensor: ...
+@overload
+def _reshape(input: _TensorLike, *shape: int, can_reorder: bool = False) -> tensor: ...
+@overload
+def _reshape(
+    input: _TensorLike, shape: tuple[int, ...], can_reorder: bool = False
+) -> tensor: ...
+def _split(a: tensor) -> tuple[tensor, tensor]: ...
+@overload
+def _trans(input: tensor, *dims: int) -> tensor: ...
+@overload
+def _trans(input: tensor, dims: tuple[int, ...]) -> tensor: ...
+@overload
+def _view(input: _TensorLike, *shape: int) -> tensor: ...
+@overload
+def _view(input: _TensorLike, shape: tuple[int, ...]) -> tensor: ...
+
+broadcast_to = _broadcast_to
+expand_dims = _expand_dims
+join = _binary_op
+permute = _permute
+ravel = _ravel
+reshape = _reshape
+split = _split
+trans = _trans
+view = _view
+
 # ===  Memory/Pointer Ops  ===
 
-type _PointerType = Any
+type _PointerType = Incomplete
 
 def load(
     pointer: _PointerType,
@@ -288,7 +340,7 @@ def _store(
 
 store = _store
 
-# ===  Math  ===
+# ===  Math Ops  ===
 
 def _unary_op(a: _TensorLike) -> tensor: ...
 def _binary_op(a: _TensorLike, b: _TensorLike) -> tensor: ...
@@ -301,7 +353,7 @@ def _ternary_op(a: _TensorLike, b: _TensorLike, c: _TensorLike) -> tensor: ...
 def _minimaxi(
     x: _TensorLike,
     y: _TensorLike,
-    propagate_nan: constexpr = ...,
+    propagate_nan: PropagateNan = ...,
 ) -> tensor: ...
 def _softmax(
     x: _TensorLike,
@@ -323,7 +375,7 @@ def clamp(
     x: _TensorLike,
     min: _TensorLike,
     max: _TensorLike,
-    propagate_nan: constexpr = ...,
+    propagate_nan: PropagateNan = ...,
 ) -> tensor: ...
 
 cos = _unary_op
@@ -360,25 +412,7 @@ def _argminmax(
 def _minmax(
     input: tensor,
     axis: int | None = None,
-    *,
-    return_indices_tie_break_left: bool = True,
-    keep_dims: bool = False,
-) -> tensor: ...
-@overload
-def _minmax(
-    input: tensor,
-    axis: int | None = None,
-    *,
-    return_indices: Literal[True],
-    return_indices_tie_break_left: bool = True,
-    keep_dims: bool = False,
-) -> tuple[tensor, tensor]: ...
-@overload
-def _minmax(
-    input: tensor,
-    axis: int | None = None,
-    *,
-    return_indices: Literal[False],
+    return_indices: Literal[False] = False,
     return_indices_tie_break_left: bool = True,
     keep_dims: bool = False,
 ) -> tensor: ...
@@ -393,11 +427,11 @@ def _minmax(
 @overload
 def _minmax(
     input: tensor,
-    axis: int | None,
-    return_indices: Literal[False],
+    *,
+    return_indices: Literal[True],
     return_indices_tie_break_left: bool = True,
     keep_dims: bool = False,
-) -> tensor: ...
+) -> tuple[tensor, tensor]: ...
 @overload
 def _minmax(
     input: tensor,
@@ -412,7 +446,6 @@ def _reduce(
     axis: int | None,
     combine_fn: Callable[[tensor, tensor], tensor],
     keep_dims: bool = False,
-    _generator: Any = None,
 ) -> tensor: ...
 @overload
 def _reduce(
@@ -420,7 +453,6 @@ def _reduce(
     axis: int | None,
     combine_fn: Callable[[tensor, tensor, tensor, tensor], tuple[tensor, tensor]],
     keep_dims: bool = False,
-    _generator: Any = None,
 ) -> tuple[tensor, tensor]: ...
 @overload
 def _reduce[T: tuple[tensor, tensor, tensor, *tuple[tensor, ...]]](
@@ -430,7 +462,6 @@ def _reduce[T: tuple[tensor, tensor, tensor, *tuple[tensor, ...]]](
         [tensor, tensor, tensor, tensor, tensor, tensor, *tuple[tensor, ...]], T
     ],
     keep_dims: bool = False,
-    _generator: Any = None,
 ) -> T: ...
 def _sum(
     input: tensor,
