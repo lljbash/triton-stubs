@@ -13,8 +13,6 @@ from triton.language.core import (
     dtype,
     map_elementwise,
     pointer_type,
-    slice,
-    tuple,
 )
 from triton.language.random import (
     pair_uniform_to_normal,
@@ -25,6 +23,8 @@ from triton.language.random import (
     uint_to_uniform_float,
 )
 from triton.language.standard import bitonic_merge, reduce_or, topk
+
+# not importing tuple and slice to avoid shadowing built-ins
 
 __all__ = [
     "PropagateNan",
@@ -238,6 +238,7 @@ class tensor:
     def T(self) -> tensor: ...
     @property
     def type(self) -> Incomplete: ...
+    def item(self) -> _Scalar: ...
 
     abs = _unary_op
     advance = _advance
