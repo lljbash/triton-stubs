@@ -4,7 +4,27 @@ from typing import Any, Literal, Self, TextIO, overload
 
 from _typeshed import Incomplete
 
-from triton.language.core import dtype, pointer_type
+from triton.language import extra, math, target_info
+from triton.language.core import (
+    async_task,
+    block_type,
+    condition,
+    const,
+    dtype,
+    map_elementwise,
+    pointer_type,
+    slice,
+    tuple,
+)
+from triton.language.random import (
+    pair_uniform_to_normal,
+    philox,
+    philox_impl,
+    rand4x,
+    randn4x,
+    uint_to_uniform_float,
+)
+from triton.language.standard import bitonic_merge, reduce_or, topk
 
 __all__ = [
     "PropagateNan",
