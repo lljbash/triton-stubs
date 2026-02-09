@@ -1,6 +1,6 @@
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from functools import total_ordering
-from typing import Literal, Self, overload
+from typing import Any, Literal, Self, TextIO, overload
 
 from _typeshed import Incomplete
 
@@ -217,22 +217,36 @@ class tensor:
     @property
     def T(self) -> tensor: ...
     @property
-    def type(self) -> dtype: ...
+    def type(self) -> Incomplete: ...
 
     abs = _unary_op
+    advance = _advance
+    associative_scan = _associative_scan
     argmax = _argminmax
     argmin = _argminmax
+    atomic_add = _atomic
+    atomic_and = _atomic
+    atomic_cas = _atomic
+    atomic_max = _atomic
+    atomic_min = _atomic
+    atomic_or = _atomic
+    atomic_xchg = _atomic
+    atomic_xor = _atomic
     broadcast_to = _broadcast_to
     cast = _cast
     cdiv = _binary_op
     ceil = _unary_op
     cos = _unary_op
+    cumprod = _cumprod
+    cumsum = _cumsum
     div_rn = _binary_op
     erf = _unary_op
     exp = _unary_op
     exp2 = _unary_op
     expand_dims = _expand_dims
     floor = _unary_op
+    gather = _gather
+    histogram = _histogram
     log = _unary_op
     log2 = _unary_op
     logical_and = _binary_op
@@ -240,6 +254,10 @@ class tensor:
     max = _minmax
     min = _minmax
     permute = _permute
+    randint4x = _rand
+    randint = _rand
+    rand = _rand
+    randn = _rand
     ravel = _ravel
     reduce = _reduce
     reshape = _reshape
@@ -247,6 +265,7 @@ class tensor:
     sigmoid = _unary_op
     sin = _unary_op
     softmax = _softmax
+    sort = _sort
     split = _split
     sqrt = _unary_op
     sqrt_rn = _unary_op
@@ -256,6 +275,38 @@ class tensor:
     to = _cast
     view = _view
     xor_sum = _xor_sum
+
+class tensor_descriptor:
+    @property
+    def block_type(self) -> Incomplete: ...
+    @property
+    def block_shape(self) -> Incomplete: ...
+    @property
+    def dtype(self) -> dtype: ...
+    @property
+    def type(self) -> Incomplete: ...
+    def atomic_add(
+        self, offsets: Sequence[constexpr | tensor], value: tensor
+    ) -> tensor: ...
+    def atomic_min(
+        self, offsets: Sequence[constexpr | tensor], value: tensor
+    ) -> tensor: ...
+    def atomic_max(
+        self, offsets: Sequence[constexpr | tensor], value: tensor
+    ) -> tensor: ...
+    def atomic_and(
+        self, offsets: Sequence[constexpr | tensor], value: tensor
+    ) -> tensor: ...
+    def atomic_or(
+        self, offsets: Sequence[constexpr | tensor], value: tensor
+    ) -> tensor: ...
+    def atomic_xor(
+        self, offsets: Sequence[constexpr | tensor], value: tensor
+    ) -> tensor: ...
+    def gather(self, *args: Incomplete) -> tensor: ...
+    def load(self, offsets: Sequence[constexpr | tensor]) -> tensor: ...
+    def store(self, offsets: Sequence[constexpr | tensor], value: tensor) -> tensor: ...
+    def scatter(self, value: Incomplete, *args: Incomplete) -> tensor: ...
 
 def program_id(axis: int) -> tensor: ...
 def num_programs(axis: int) -> tensor: ...
@@ -315,6 +366,31 @@ split = _split
 trans = _trans
 view = _view
 
+# ===  Linear Algebra Ops  ===
+
+def dot(
+    input: tensor,
+    other: tensor,
+    acc: tensor | None = None,
+    input_precision: Literal["tf32", "tf32x3", "ieee"] | None = None,
+    allow_tf32: bool | None = None,
+    max_num_imprecise_acc: Incomplete = None,
+    out_dtype: dtype = float32,
+) -> tensor: ...
+def dot_scaled(
+    lhs: tensor,
+    lhs_scale: tensor | None,
+    lhs_format: Literal["e2m1", "e4m3", "e5m2", "bf16", "fp16"],
+    rhs: tensor,
+    rhs_scale: tensor | None,
+    rhs_format: Literal["e2m1", "e4m3", "e5m2", "bf16", "fp16"],
+    acc: tensor | None = None,
+    fast_math: bool = False,
+    lhs_k_pack: bool = True,
+    rhs_k_pack: bool = True,
+    out_dtype: dtype = float32,
+) -> tensor: ...
+
 # ===  Memory/Pointer Ops  ===
 
 type _PointerType = Incomplete
@@ -339,6 +415,42 @@ def _store(
 ) -> None: ...
 
 store = _store
+
+def make_tensor_descriptor(
+    base: tensor,
+    shape: list[tensor],
+    strides: list[tensor],
+    block_shape: list[constexpr],
+    padding_option: str = "zero",
+) -> tensor_descriptor: ...
+def load_tensor_descriptor(
+    desc: tensor_descriptor, offsets: Sequence[constexpr | tensor]
+) -> tensor: ...
+def store_tensor_descriptor(
+    desc: tensor_descriptor, offsets: Sequence[constexpr | tensor], value: tensor
+) -> tensor: ...
+def make_block_ptr(
+    base: tensor,
+    shape: Incomplete,
+    strides: Incomplete,
+    offsets: Incomplete,
+    block_shape: Incomplete,
+    order: Incomplete,
+) -> _PointerType: ...
+def _advance(base: _PointerType, offsets: Sequence[Incomplete]) -> _PointerType: ...
+
+advance = _advance
+
+# ===  Indexing Ops ===
+
+def _flip(x: tensor, dim: int | None = None) -> tensor: ...
+
+flip = _flip
+
+def where(condition: _TensorLike, x: _TensorLike, y: _TensorLike) -> tensor: ...
+def swizzle2d(
+    i: tensor | int, j: tensor | int, size_i: int, size_j: int, size_g: int
+) -> tuple[tensor, tensor]: ...
 
 # ===  Math Ops  ===
 
@@ -481,6 +593,73 @@ reduce = _reduce
 sum = _sum
 xor_sum = _xor_sum
 
+# ===  Scan/Sort Ops ===
+
+@overload
+def _associative_scan(
+    input: tensor,
+    axis: int | None,
+    combine_fn: Callable[[tensor, tensor], tensor],
+    reverse: bool = False,
+) -> tensor: ...
+@overload
+def _associative_scan(
+    input: tuple[tensor, tensor],
+    axis: int | None,
+    combine_fn: Callable[[tensor, tensor, tensor, tensor], tuple[tensor, tensor]],
+    reverse: bool = False,
+) -> tensor: ...
+@overload
+def _associative_scan[T: tuple[tensor, tensor, tensor, *tuple[tensor, ...]]](
+    input: T,
+    axis: int | None,
+    combine_fn: Callable[
+        [tensor, tensor, tensor, tensor, tensor, tensor, *tuple[tensor, ...]], T
+    ],
+    reverse: bool = False,
+) -> tensor: ...
+def _cumprod(input: tensor, axis: int = 0, reverse: bool = False) -> tensor: ...
+def _cumsum(
+    input: tensor, axis: int = 0, reverse: bool = False, dtype: dtype | None = None
+) -> tensor: ...
+def _histogram(input: tensor, num_bins: int, mask: tensor | None = None) -> tensor: ...
+def _sort(x: tensor, dim: int | None = None, descending: bool = False) -> tensor: ...
+def _gather(src: tensor, index: tensor, axis: int) -> tensor: ...
+
+associative_scan = _associative_scan
+cumprod = _cumprod
+cumsum = _cumsum
+histogram = _histogram
+sort = _sort
+gather = _gather
+
+# === Atomic Ops ===
+
+def _atomic(
+    pointer: tensor,
+    val: tensor,
+    sen: Literal["acquire", "release", "acq_rel", "relaxed"] | None = None,
+    scope: Literal["gpu", "cta", "sys"] | None = None,
+) -> tensor: ...
+
+atomic_add = _atomic
+atomic_and = _atomic
+atomic_cas = _atomic
+atomic_max = _atomic
+atomic_min = _atomic
+atomic_or = _atomic
+atomic_xchg = _atomic
+atomic_xor = _atomic
+
+# ===  Random Number Generation  ===
+
+def _rand(seed: int, offset: _TensorLike, n_rounds: int = ...) -> tensor: ...
+
+randint4x = _rand
+randint = _rand
+rand = _rand
+randn = _rand
+
 # ===  Iterators ===
 
 class range:
@@ -508,3 +687,37 @@ class static_range:
     ) -> None: ...
     def __iter__(self) -> Self: ...
     def __next__(self) -> int: ...
+
+# ===  Inline Assembly  ===
+
+def inline_asm_elementwise(
+    asm: str,
+    constraints: str,
+    args: Sequence[tensor],
+    dtype: dtype | Sequence[dtype],
+    is_pure: bool,
+    pack: int,
+) -> tensor | tuple[tensor, ...]: ...
+
+# ===  Compiler Hint Ops  ===
+
+def assume(cond: bool) -> None: ...
+def debug_barrier() -> None: ...
+def max_constancy(input: tensor, values: int | Iterable[int]) -> None: ...
+def max_contiguous(input: tensor, values: int | Iterable[int]) -> None: ...
+def multiple_of(input: tensor, values: int | Iterable[int]) -> None: ...
+
+# === Debug Ops ===
+
+def static_print(
+    *values: Any,
+    sep: str = " ",
+    end: str = "\n",
+    file: TextIO | None = None,
+    flush: bool = False,
+) -> None: ...
+def static_assert(cond: bool, msg: str = "") -> None: ...
+def device_print(prefix: str, *args: Any, hex: bool = False) -> None: ...
+def device_assert(
+    cond: _TensorLike, msg: str = "", mask: _TensorLike | None = None
+) -> None: ...
